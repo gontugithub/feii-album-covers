@@ -8,12 +8,12 @@ Los ficheros de autoría **no se commitean** (`.cursor/rules/40-asset-pipeline`:
 | `blender/stadium.blend` (42,8 MB) | Escena completa. La colección `REF_Sketchfab_Freddie` guarda el modelo original con rig, ya posado, para volver a generar `Freddie`. `Freddie_maniqui` (fila 19) queda oculto. |
 | `blender/stadium.glb` (6,4 MB) | Export sin comprimir: entrada de `gltf-transform optimize` en task3. |
 | `blender/textures/freddie_atlas.png` | Atlas de Freddie, 2048², RGBA (alfa solo en pelo y bigote). |
-| `blender/textures/stadium_ao.png` | AO de `Stadium` + `Stage`, 2048², UV `atlas`. |
+| `blender/textures/stadium_ao.png` | AO de `Stadium` + `Stage`, 2048², UV `atlas`, guardado en sRGB (va en `baseColorTexture`). |
 
 ## Contenido del GLB
 
 Nodos `Fan_LOD0`, `Fan_LOD1`, `Freddie`, `Mic`, `Stadium` y `Stage`. +Y arriba, sin cámaras ni luces.
-43 991 tris, 8 primitivas, 6 materiales y 2 imágenes.
+43 921 tris, 8 primitivas, 6 materiales y 2 imágenes (Fan_LOD1 rehecho a 70 tris en task3).
 
 - `Freddie`: 23 683 tris, 1 material con atlas y `alphaMode: MASK`, una sola cara.
 - `Stadium` + `Stage`: material compartido `QBR_Baked` = `COLOR_0` × AO. `Sg_Lamp` es emisivo aparte.
