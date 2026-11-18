@@ -10,7 +10,8 @@
 // atraviesa la funda en reposo. Un CLIC (R3F solo lo dispara si el puntero se movió ≤ 2 px:
 // arrastrar para orbitar no cuenta) = entrar. Hover → la ruta pone cursor pointer y la funda
 // crece un 3 %.
-// Se desvanece entre PORTAL_FADE[0] y PORTAL_FADE[1] y luego se oculta (luces incluidas: el
+// Se desvanece entre PORTAL_FADE[0] y PORTAL_FADE[1] (curva portalOpacity: cae rápido, para que el
+// estadio no salga pálido bajo la funda medio transparente) y luego se oculta (sus luces bajan a 0 a la vez: el
 // mundo trae las suyas). Sin asignaciones en useFrame.
 //
 // Match cut (keys.js): tamaño y posición de la funda se CALCULAN para que la figura pintada
@@ -22,7 +23,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { BoxGeometry, CylinderGeometry, DoubleSide, MathUtils } from 'three';
-import { PORTAL_FADE, SLEEVE_CENTER, SLEEVE_SIZE, VIEW_DIR } from './keys.js';
+import { PORTAL_FADE, SLEEVE_CENTER, SLEEVE_SIZE, SLEEVE_TILT, VIEW_DIR, portalOpacity } from './keys.js';
 import { useSleeveTexture } from './sleeveArt.js';
 
 const W = 3; // lado de la funda en unidades de diseño
@@ -33,6 +34,8 @@ const DISC_REST_X = 0.55; // el disco asoma por el borde +X local
 // La cara +Z local (portada) mira a la cámara MATCH: girada 180° si la cámara mira a +Z.
 const REST_ROT_Y = VIEW_DIR > 0 ? Math.PI : 0;
 const [SX, SY, SZ] = SLEEVE_CENTER;
+/** Intensidades de las luces propias de la funda (mismo orden que en el JSX). */
+const LIGHT_BASE = [0.55, 2.4, 0.6];
 
 /**
  * Opacidad de todos los materiales bajo `object` (recursivo, sin cierres ni arrays nuevos por frame).
@@ -96,12 +99,19 @@ export default function CoverPortal({ progress, idle, reduced, onEnter, onHover 
     // Fundido al atravesar.
     const [from, to] = PORTAL_FADE;
     const fade = MathUtils.clamp((progress.current.t - from) / (to - from), 0, 1);
-    setOpacity(g, 1 - fade);
+    const opacity = portalOpacity(progress.current.t);
+    setOpacity(g, opacity);
     g.visible = fade < 1;
-    if (lights.current) lights.current.visible = fade < 1;
+    // Las luces propias se apagan con la portada (antes se quedaban a plena potencia hasta el final del
+    // fundido y, sumadas a las del estadio, lo dejaban pálido). Siempre montadas: cambiar el número de
+    // luces recompila los materiales (tirón).
+    if (lights.current) {
+      const l = lights.current.children;
+      for (let i = 0; i < l.length; i += 1) l[i].intensity = LIGHT_BASE[i] * opacity;
+    }
     if (backdrop.current) {
       backdrop.current.visible = !idle && fade < 1;
-      backdrop.current.material.opacity = 1 - fade;
+      backdrop.current.material.opacity = opacity;
     }
   });
 
@@ -114,10 +124,10 @@ export default function CoverPortal({ progress, idle, reduced, onEnter, onHover 
     <>
       {/* Luz propia de la funda: el mundo (y sus luces) está oculto hasta WORLD_FROM. */}
       <group ref={lights}>
-        <ambientLight intensity={0.55} color="#ffe2c4" />
+        <ambientLight intensity={LIGHT_BASE[0]} color="#ffe2c4" />
         {/* Principal desde el lado de la cámara, arriba; relleno violeta desde detrás de la funda. */}
-        <directionalLight position={[SX - 3 * VIEW_DIR, SY + 5, SZ - 8 * VIEW_DIR]} intensity={2.4} color="#fff1dc" />
-        <directionalLight position={[SX + 4 * VIEW_DIR, SY - 1, SZ + 8 * VIEW_DIR]} intensity={0.6} color="#b07cff" />
+        <directionalLight position={[SX - 3 * VIEW_DIR, SY + 5, SZ - 8 * VIEW_DIR]} intensity={LIGHT_BASE[1]} color="#fff1dc" />
+        <directionalLight position={[SX + 4 * VIEW_DIR, SY - 1, SZ + 8 * VIEW_DIR]} intensity={LIGHT_BASE[2]} color="#b07cff" />
       </group>
 
       {/* Telón negro (fuera del grupo con eventos): 1 m detrás de la funda, cubre todo el encuadre.
@@ -136,7 +146,7 @@ export default function CoverPortal({ progress, idle, reduced, onEnter, onHover 
         ref={root}
         name="CoverPortal"
         position={SLEEVE_CENTER}
-        rotation={[0, REST_ROT_Y, 0]}
+        rotation={[SLEEVE_TILT, REST_ROT_Y, 0]}
         scale={SCALE}
         onClick={(event) => {
           if (!idle) return;

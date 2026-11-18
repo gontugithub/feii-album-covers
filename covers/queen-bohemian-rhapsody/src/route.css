@@ -17,10 +17,15 @@
   inset: 0;
 }
 
+.qbr {
+  --qbr-nav-room: 112px; /* selector de proyecto + anterior/siguiente de la galería, abajo a la izquierda */
+}
+
+/* Encima de los botones de navegación de la galería, no debajo. */
 .qbr__title {
   position: absolute;
   left: 24px;
-  bottom: 24px;
+  bottom: var(--qbr-nav-room);
   pointer-events: none;
   text-shadow: 0 1px 12px rgb(0 0 0 / 70%);
 }
@@ -113,6 +118,185 @@
   background: rgb(255 184 112 / 38%);
 }
 
+/* Tracklist: panel derecho entre la atribución (arriba) y los controles (abajo). */
+.qbr__tracklist {
+  position: absolute;
+  top: 84px;
+  right: 24px;
+  bottom: 176px;
+  width: min(320px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  padding: 14px 10px 10px;
+  border-radius: 16px;
+  border: 1px solid rgb(255 244 230 / 18%);
+  background: rgb(12 6 16 / 58%);
+  backdrop-filter: blur(12px);
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+}
+
+.qbr__tracklist--closed {
+  bottom: auto;
+  width: auto;
+  padding: 6px 8px;
+}
+
+.qbr__tracklist a {
+  color: #ffb870;
+}
+
+.qbr__tracklist-toggle {
+  all: unset;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 8px 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.qbr__tracklist--closed .qbr__tracklist-toggle {
+  padding-bottom: 2px;
+}
+
+.qbr__tracklist-toggle:focus-visible,
+.qbr__tracks button:focus-visible {
+  outline: 2px solid #ffb870;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.qbr__tracklist-meta,
+.qbr__tracklist-note {
+  margin: 0 8px 8px;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+.qbr__tracklist-note:last-child {
+  margin: 8px 8px 0;
+}
+
+.qbr__tracks {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 244 230 / 25%) transparent;
+}
+
+.qbr__tracks li {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.qbr__tracks li:hover,
+.qbr__tracks li.is-playing {
+  background: rgb(255 184 112 / 14%);
+}
+
+.qbr__tracks button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.qbr__tracks button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.qbr__tracks .n,
+.qbr__tracks .d {
+  font: 11px ui-monospace, monospace;
+  opacity: 0.65;
+}
+
+.qbr__tracks li.is-playing .n {
+  color: #ffb870;
+  opacity: 1;
+}
+
+.qbr__tracks-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #ffb870, #b45cff);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.qbr__tutorial {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid rgb(255 184 112 / 45%);
+  background: rgb(12 6 16 / 78%);
+  backdrop-filter: blur(12px);
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.qbr__tutorial h2 {
+  margin: 0 0 10px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+
+.qbr__tutorial ul {
+  margin: 0 0 14px;
+  padding-left: 18px;
+}
+
+.qbr__tutorial kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 5px;
+  border: 1px solid rgb(255 244 230 / 45%);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font: 12px/1.5 ui-monospace, monospace;
+  text-align: center;
+}
+
+.qbr__tutorial button {
+  font: inherit;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid #ffb870;
+  background: rgb(255 184 112 / 22%);
+  color: inherit;
+  cursor: pointer;
+}
+
+.qbr__tutorial button:focus-visible {
+  outline: 2px solid #ffb870;
+  outline-offset: 3px;
+}
+
 .qbr__budget {
   position: absolute;
   left: 24px;
@@ -135,4 +319,20 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Pantallas estrechas: la tracklist empieza plegada y, abierta, ocupa el ancho. */
+@media (max-width: 860px) {
+  .qbr__tracklist {
+    top: 96px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    bottom: 200px;
+  }
+
+  .qbr__tracklist--closed {
+    left: auto;
+    bottom: auto;
+  }
 }

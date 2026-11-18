@@ -14,20 +14,14 @@
  */
 
 // ---------------------------------------------------------------------------------------------
-// MATCH CUT portada → mundo
-// La figura de public/sleeve.png (tools/make-sleeve.mjs) y el Freddie 3D (placeholders.js) se
-// alinean vistos desde la cámara MATCH: la funda está entre la cámara y Freddie, a la escala justa
-// para que cabeza y pies de la figura pintada caigan sobre cabeza y pies del maniquí 3D.
-// El plano arranca POR DETRÁS del cantante (como el vídeo): cámara en +Z mirando a −Z, Freddie de
-// espaldas a contraluz (el sol está delante de él, al fondo, en −Z).
-// Durante el zoom y el fundido la cámara NO se mueve (solo cambia el FOV): sin paralaje, el encaje
-// se mantiene exacto mientras la portada se desvanece y aparece el estadio.
+// PASO portada → mundo (task5)
+// Con la portada oficial (public/cover.jpg) ya no hay encaje exacto figura ↔ Freddie 3D: el primer
+// plano del estadio se elige por encuadre. Cámara casi a ras del escenario (0,3 m), por detrás de
+// Freddie (+Z, mirando a −Z) e inclinada hacia arriba: Freddie entero a contraluz y el cielo encima
+// de la grada (con la cámara a 1,4 m y en horizontal solo se veía la grada).
+// La funda está delante de esa cámara, perpendicular a su mirada (inclinada SLEEVE_TILT), así que
+// el zoom de FOV la atraviesa de frente; durante el fundido el FOV se abre a REVEAL_FOV.
 // ---------------------------------------------------------------------------------------------
-
-/** Figura en la imagen de la funda (UV con v hacia abajo, como el canvas de make-sleeve.mjs). */
-const FIGURE = { u: 0.6, vTop: 0.353, vBottom: 0.924 };
-/** Maniquí 3D (placeholders.js · makeFreddie): alturas de pies y coronilla, plano z = 0. */
-const FREDDIE = { bottom: 0.05, top: 1.82, z: 0 };
 
 /** Lado de la funda (m). */
 export const SLEEVE_SIZE = 1.0;
@@ -37,23 +31,24 @@ const MATCH_DIST = 2.9;
 /** Hacia dónde mira la cámara MATCH en Z: −1 = desde detrás de Freddie (él mira a −Z). */
 export const VIEW_DIR = -1;
 
-// Semejanza de triángulos: k = (distancia a la funda) / (distancia a Freddie).
-const K = ((FIGURE.vBottom - FIGURE.vTop) * SLEEVE_SIZE) / (FREDDIE.top - FREDDIE.bottom);
-const CAM_Z = FREDDIE.z - VIEW_DIR * (MATCH_DIST / K);
-// Cámara mirando recto (VIEW_DIR) y funda centrada en pantalla: la vertical de Freddie (x = 0) cae
-// en u y sus pies en vBottom. Mirando a −Z la derecha de la cámara es +X (mirando a +Z, −X).
-const CAM_X = (VIEW_DIR * (FIGURE.u - 0.5) * SLEEVE_SIZE) / K;
-const CAM_Y = FREDDIE.bottom + ((FIGURE.vBottom - 0.5) * SLEEVE_SIZE) / K;
+/** Primer plano del estadio: posición y punto de mira (Freddie mide ~2 m; la grada tapa hasta ~17°). */
+const LOW_POS = /** @type {[number, number, number]} */ ([-0.35, 0.3, 5.2]);
+const LOW_LOOK = /** @type {[number, number, number]} */ ([0, 1.9, 0]);
 
-/** Pose MATCH: de frente a la funda, cantante centrado. Aquí termina el acercamiento y empieza el zoom. */
-export const MATCH = {
-  pos: /** @type {[number, number, number]} */ ([CAM_X, CAM_Y, CAM_Z]),
-  look: /** @type {[number, number, number]} */ ([CAM_X, CAM_Y, CAM_Z + VIEW_DIR * 5]),
-  fov: 35,
-};
+const DIR = (() => {
+  const d = LOW_LOOK.map((v, i) => v - LOW_POS[i]);
+  const len = Math.hypot(...d);
+  return d.map((v) => v / len);
+})();
+
+/** Inclinación de la funda (rad, sobre X) para quedar de cara a la cámara que mira hacia arriba. */
+export const SLEEVE_TILT = Math.asin(DIR[1]);
+
+/** Pose MATCH: de frente a la funda. Aquí termina el acercamiento y empieza el zoom. */
+export const MATCH = { pos: LOW_POS, look: LOW_LOOK, fov: 35 };
 
 /** Centro de la funda (CoverPortal) y objetivo de la órbita en idle. */
-export const SLEEVE_CENTER = /** @type {[number, number, number]} */ ([CAM_X, CAM_Y, CAM_Z + VIEW_DIR * MATCH_DIST]);
+export const SLEEVE_CENTER = /** @type {[number, number, number]} */ (LOW_POS.map((c, i) => c + DIR[i] * MATCH_DIST));
 
 /**
  * Cámara inicial en idle: tres cuartos (de lado y algo por encima) a MATCH_DIST de la funda, el
@@ -70,13 +65,29 @@ export const ORBIT_DIST = [MATCH_DIST * 0.5, MATCH_DIST * 2];
 /** Segundos del acercamiento desde donde dejaste la órbita hasta la pose MATCH. */
 export const APPROACH = 1.2;
 
-/** 0 → FLIGHT_FROM: zoom (FOV de MATCH.fov a ZOOM_FOV) sobre el cantante, cámara quieta. */
+/**
+ * 0 → FLIGHT_FROM, cámara quieta: zoom hacia la funda (MATCH.fov → ZOOM_FOV, la llena al atravesarla)
+ * hasta PORTAL_FADE[0]; después el FOV se abre a REVEAL_FOV mientras la portada se funde.
+ */
 export const FLIGHT_FROM = 3.6;
 export const ZOOM_FOV = 17;
+export const REVEAL_FOV = 50;
 
 /** Fundido portada → mundo dentro del zoom; el mundo se enciende al empezar el fundido. */
 export const PORTAL_FADE = [1.6, 3.4];
 export const WORLD_FROM = PORTAL_FADE[0];
+
+/**
+ * Opacidad de la portada (y de lo que se funde con ella) en el instante t: 1 → 0 dentro de PORTAL_FADE,
+ * con caída rápida al principio. Con un fundido lineal, la funda ampliada (rosas y naranjas claros que
+ * llenan la pantalla) quedaba a media opacidad sobre el estadio y lo dejaba pálido hasta acabar el fundido.
+ *
+ * @param {number} t
+ */
+export function portalOpacity(t) {
+  const f = Math.min(Math.max((t - PORTAL_FADE[0]) / (PORTAL_FADE[1] - PORTAL_FADE[0]), 0), 1);
+  return (1 - f) ** 2.5;
+}
 
 /**
  * Vuelo (desde FLIGHT_FROM), guion de gontugithub en el GATE 4 (sustituye a los planos del vídeo de 16,5 s):
@@ -91,7 +102,7 @@ export const WORLD_FROM = PORTAL_FADE[0];
  * @type {CameraKey[]}
  */
 export const KEYS = [
-  { t: FLIGHT_FROM, pos: MATCH.pos, look: MATCH.look, fov: ZOOM_FOV, tod: 0 }, // portada → Freddie, ampliado
+  { t: FLIGHT_FROM, pos: MATCH.pos, look: MATCH.look, fov: REVEAL_FOV, tod: 0 }, // portada → Freddie desde abajo, con cielo
   // 1 · por detrás, a contraluz y desde abajo (cielo como en la portada)
   { t: 6.5, pos: [3.2, 0.7, 4.5], look: [0, 2.2, -3], fov: 50, tod: 0 }, // revelado lateral en contrapicado
   { t: 9.5, pos: [2.6, 1.0, 2.8], look: [0, 2.0, -1.5], fov: 46, tod: 0.03 }, // por su costado

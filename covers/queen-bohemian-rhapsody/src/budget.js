@@ -20,4 +20,7 @@
 // task3 (2026-11-17, misma máquina): GLB de Blender + KTX2. Pico del fundido: 19 calls (estadio, escenario ×2,
 // Freddie, micro ×2, multitud LOD0 + LOD1, cielo, portada ×9), 559 733 triángulos, 14 geometrías, 4 texturas
 // (funda, vinilo, atlas de Freddie, AO del estadio). Detalle en docs/renderer-info.md.
-export const CEILING = { calls: 19, triangles: 559733, geometries: 14, textures: 4 };
+// task5 (2026-11-18, misma máquina): + espacio en idle (SpaceBackdrop: nebulosa + estrellas + polvo = 3 calls,
+// 3 geometrías). Durante el fundido se ve a la vez que el estadio: pico 22 calls, 561 941 triángulos,
+// 17 geometrías, 4 texturas. Idle: 11 calls.
+export const CEILING = { calls: 22, triangles: 561941, geometries: 17, textures: 4 };

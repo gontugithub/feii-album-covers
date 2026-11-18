@@ -5,7 +5,8 @@ Scene (task1): portada procedural (CanvasTexture) → skybox con shader propio +
 Freddie-maniquí y micro **procedurales** (placeholders, `USE_GLB = false`) + multitud de 5000 fans en
 1 `InstancedMesh`. task2: + 1 667 luces de móvil en 1 `Points`, 4 luces (ambiente, direccional, 2 spots), shadows off, DPR cap [1, 1.5], sin post-proceso.
 Unit cap, any scene: desktop ≤ 200 calls, mobile ≤ 80. Objetivo propio: ≤ 40 calls, ≤ 600k triangles.
-Accepted ceiling for this tree: **19 calls · 559 733 triangles · 14 geometries · 4 textures** (pico del fundido, task3 con el GLB) — igual que `src/budget.js` (`CEILING`).
+Accepted ceiling for this tree: **22 calls · 561 941 triangles · 17 geometries · 4 textures** (pico del fundido, task5: GLB + espacio del idle) — igual que `src/budget.js` (`CEILING`).
+task5: el idle flota en un espacio procedural (`SpaceBackdrop.jsx`: nebulosa, estrellas y polvo = +3 calls, +3 geometrías); medido el 2026-11-18 con la misma máquina y método: idle 11 calls · 2 796 triángulos · 6 geometrías · 2 texturas; pico del fundido 22 · 561 941 · 17 · 4.
 task3: el GLB de Blender sustituye a los placeholders (`USE_GLB = true`): estadio + escenario + Freddie (modelo CC-BY, ver D8) + micro, multitud con Fan_LOD0/Fan_LOD1; funda en KTX2 ETC1S.
 
 Pins: three@0.185.1, @react-three/fiber@9.8.2, @react-three/drei@10.7.9, react@19.3.1 (this repo's package.json).

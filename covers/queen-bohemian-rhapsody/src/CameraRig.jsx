@@ -3,15 +3,17 @@
 // Dos CatmullRomCurve3 (posición y punto de mira) + tabla de keyframes con tiempos (keys.js).
 // getPoint(i / (n - 1)) pasa EXACTAMENTE por el punto i, así que mapeando
 // tiempo → (segmento i + progreso local u) controlamos cuándo llega la cámara a cada plano.
-// Al terminar (o al saltar la intro) entrega el control al usuario con <CameraControls/>.
+// Al terminar (o al saltar la intro) el usuario recorre la misma ruta con la rueda / deslizando
+// (modo «recorrido»: abajo avanza, arriba deshace el vuelo) o, con `free`, mira por libre con
+// FreeFly (WASD + ratón, como volar en un juego de bloques). Al volver de libre la cámara regresa a la ruta con una mezcla suave.
 //
 // - `started = false` (estado idle): OrbitControls alrededor de la funda (arrastrar gira,
 //   rueda acerca); el reloj de la intro no avanza. La cámara arranca en IDLE_CAMERA (tres cuartos).
 // - Al pasar `started = true` (clic en la funda o «Entrar»): acercamiento de APPROACH s desde
 //   donde quedó la órbita hasta la pose MATCH (de frente, cantante centrado).
-// - t ∈ [0, FLIGHT_FROM): zoom SOLO de FOV (MATCH.fov → ZOOM_FOV) con la cámara quieta. Sin
-//   paralaje, la figura pintada y el Freddie 3D siguen superpuestos mientras la portada se funde
-//   (match cut, ver keys.js). t ≥ FLIGHT_FROM: el vuelo arranca desde esa pose ya ampliada.
+// - t ∈ [0, FLIGHT_FROM): cámara quieta en MATCH (a ras del escenario, mirando hacia arriba): zoom de
+//   FOV hasta llenar la funda (MATCH.fov → ZOOM_FOV) y, mientras se funde, apertura a REVEAL_FOV
+//   (Freddie a contraluz con el cielo, ver keys.js). t ≥ FLIGHT_FROM: el vuelo arranca desde ahí.
 // - `skip`: salta a la pose final en un frame (botón "Saltar intro", Escape, o
 //   prefers-reduced-motion, que nunca reproduce el vuelo).
 // - Modo dev (solo `npm run dev`): Espacio pausa · ←/→ scrub ±0,25 s · S salta al final ·
@@ -22,24 +24,32 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { CameraControls, OrbitControls } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { CatmullRomCurve3, MathUtils, Vector3 } from 'three';
-import { APPROACH, FLIGHT_FROM, INTRO_END, KEYS, MATCH, ORBIT_DIST, SLEEVE_CENTER, ZOOM_FOV } from './keys.js';
+import FreeFly from './FreeFly.jsx';
+import { APPROACH, FLIGHT_FROM, INTRO_END, KEYS, MATCH, ORBIT_DIST, PORTAL_FADE, REVEAL_FOV, SLEEVE_CENTER, ZOOM_FOV } from './keys.js';
 
 const smooth = (x) => x * x * (3 - 2 * x);
+
+/** Recorrido tras la intro: segundos de ruta por píxel de rueda y por píxel deslizado en táctil. */
+const WHEEL_S_PER_PX = 0.012;
+const TOUCH_S_PER_PX = 0.06;
+/** Con qué rapidez el reloj alcanza el objetivo de la rueda (1/s). */
+const SCROLL_EASE = 3;
 
 /**
  * @param {object} props
  * @param {boolean} props.started false = idle en la pose t = 0; true = corre la intro.
  * @param {boolean} props.skip Saltar a la pose final (solo cuenta con `started`).
+ * @param {boolean} [props.free] Tras la intro: navegación libre en vez del recorrido con la rueda.
  * @param {(p: { t: number, tod: number }) => void} [props.onProgress] Cada frame de la intro.
  * @param {() => void} [props.onDone] Una vez, al entregar el control.
  */
-export default function CameraRig({ started, skip, onProgress, onDone }) {
+export default function CameraRig({ started, skip, free = false, onProgress, onDone }) {
   const get = useThree((state) => state.get);
-  const controls = useRef(null);
-  const [phase, setPhase] = useState('intro'); // 'intro' | 'free'
-  const clock = useRef({ t: 0, playing: true, snap: true });
+  const gl = useThree((state) => state.gl);
+  const [phase, setPhase] = useState('intro'); // 'intro' | 'tour' (tras la intro: recorrido o libre según `free`)
+  const clock = useRef({ t: 0, playing: true, snap: true, target: INTRO_END, rate: 14 });
   const tmp = useRef({ pos: new Vector3(), look: new Vector3(), smoothLook: new Vector3(...MATCH.look) });
   // Acercamiento idle → MATCH: desde dónde (capturado en el primer frame) y progreso 0..1.
   const approach = useRef({
@@ -63,6 +73,7 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
   // Herramientas de desarrollo para afinar KEYS (GATE 1).
   useEffect(() => {
     if (!import.meta.env.DEV) return undefined;
+    if (free) return undefined; // en libre las teclas son de FreeFly
     const onKey = (event) => {
       if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea')) return;
       const c = clock.current;
@@ -84,10 +95,48 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [get]);
+  }, [get, free]);
+
+  // Recorrido tras la intro: la rueda y el deslizamiento mueven el objetivo del reloj por la ruta.
+  useEffect(() => {
+    if (phase !== 'tour' || free) return undefined;
+    const el = gl.domElement;
+    const c = clock.current;
+    const move = (seconds) => {
+      c.target = MathUtils.clamp(c.target + seconds, FLIGHT_FROM, INTRO_END);
+    };
+    const onWheel = (event) => {
+      event.preventDefault();
+      const px = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY; // líneas → px (Firefox)
+      move(px * WHEEL_S_PER_PX);
+    };
+    let lastY = 0;
+    const onTouchStart = (event) => {
+      lastY = event.touches[0].clientY;
+    };
+    const onTouchMove = (event) => {
+      event.preventDefault();
+      const y = event.touches[0].clientY;
+      move((lastY - y) * TOUCH_S_PER_PX); // deslizar hacia arriba avanza, como hacer scroll
+      lastY = y;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [phase, free, gl]);
+
+  // Al volver de libre al recorrido: el objetivo es donde estaba el reloj y la mezcla arranca lenta.
+  useEffect(() => {
+    if (!free) clock.current.rate = 1.5;
+  }, [free]);
 
   useFrame((state, delta) => {
-    if (phase !== 'intro') return;
+    if (phase === 'tour' && free) return;
     const c = clock.current;
     const dt = Math.min(delta, 0.05);
     if (!started) {
@@ -122,11 +171,14 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
     }
     ap.k = 1;
 
-    if (skip && c.t < INTRO_END) {
+    if (phase === 'intro' && skip && c.t < INTRO_END) {
       c.t = INTRO_END;
       c.snap = true;
     }
-    if (c.playing) c.t += dt;
+    if (phase === 'tour') {
+      c.t += (c.target - c.t) * (1 - Math.exp(-SCROLL_EASE * dt));
+      c.rate = Math.min(14, c.rate + 6 * dt);
+    } else if (c.playing) c.t += dt;
     const t = Math.min(c.t, INTRO_END);
     const { camera } = state;
     const { pos, look, smoothLook } = tmp.current;
@@ -134,12 +186,18 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
     if (t < FLIGHT_FROM) {
       // Zoom de match cut: posición y mirada fijas en MATCH, solo cambia el FOV (sin paralaje).
       // Acelera hacia el final (ease-in) para enlazar con el arranque del vuelo.
-      const z = t / FLIGHT_FROM;
       pos.set(...MATCH.pos);
       smoothLook.set(...MATCH.look);
       camera.position.copy(pos);
       camera.lookAt(smoothLook);
-      camera.fov = MathUtils.lerp(MATCH.fov, ZOOM_FOV, z * z * (2 - z));
+      const cross = PORTAL_FADE[0];
+      if (t < cross) {
+        const z = t / cross; // hacia la funda hasta llenarla
+        camera.fov = MathUtils.lerp(MATCH.fov, ZOOM_FOV, z * z * (2 - z));
+      } else {
+        // la portada se funde y el plano se abre: Freddie desde abajo con el cielo
+        camera.fov = MathUtils.lerp(ZOOM_FOV, REVEAL_FOV, smooth((t - cross) / (FLIGHT_FROM - cross)));
+      }
       camera.updateProjectionMatrix();
       c.snap = false;
       onProgress?.({ t, tod: 0 });
@@ -158,7 +216,7 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
     lookCurve.getPoint(s, look);
 
     // Suavizado exponencial: absorbe los cambios de velocidad entre segmentos.
-    const k = c.snap ? 1 : 1 - Math.exp(-14 * dt);
+    const k = c.snap ? 1 : 1 - Math.exp(-c.rate * dt);
     c.snap = false;
     camera.position.lerp(pos, k);
     smoothLook.lerp(look, k);
@@ -167,25 +225,16 @@ export default function CameraRig({ started, skip, onProgress, onDone }) {
     camera.updateProjectionMatrix();
 
     onProgress?.({ t, tod: MathUtils.lerp(a.tod, b.tod, smooth(u)) });
-    if (c.t >= INTRO_END) {
-      setPhase('free');
+    if (phase === 'intro' && c.t >= INTRO_END) {
+      c.target = INTRO_END;
+      setPhase('tour');
       onDone?.();
     }
   });
-
-  // Entrega a navegación libre desde la pose final.
-  useEffect(() => {
-    if (phase !== 'free' || !controls.current) return;
-    const { camera } = get();
-    const l = tmp.current.smoothLook;
-    controls.current.setLookAt(camera.position.x, camera.position.y, camera.position.z, l.x, l.y, l.z, false);
-  }, [phase, get]);
 
   if (!started) {
     // Órbita alrededor de la funda, sin pan (como _studio); target = SLEEVE_CENTER.
     return <OrbitControls makeDefault enablePan={false} target={SLEEVE_CENTER} minDistance={ORBIT_DIST[0]} maxDistance={ORBIT_DIST[1]} />;
   }
-  return phase === 'free' ? (
-    <CameraControls ref={controls} makeDefault minDistance={0.5} maxDistance={60} maxPolarAngle={Math.PI * 0.55} />
-  ) : null;
+  return phase === 'tour' && free ? <FreeFly /> : null;
 }
