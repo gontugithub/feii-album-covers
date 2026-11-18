@@ -1,13 +1,11 @@
 // sleeveArt.js — la imagen impresa en la funda del disco (idle + portada que atraviesa la cámara).
 //
-// Derechos (D8): NO es la portada oficial. Por defecto es un dibujo procedural hecho aquí,
-// en un <canvas> 2D: degradado de atardecer, sol, grada escalonada y una silueta de maniquí
-// con el puño alzado. Sin texto ni logotipos.
-//
-// Por defecto se usa public/sleeve.png (1024², sRGB), pintado por tools/make-sleeve.mjs: arte
-// original (sin foto, texto ni escudo). La portada oficial NO va aquí: solo en reference/ (local).
-// Es el mismo archivo que `npm run encode -- queen-bohemian-rhapsody` convierte a KTX2 en task3;
-// desde task3 la ruta carga el KTX2 (ETC1S por defecto, ver SLEEVE_MODE).
+// Desde task5 la funda es la PORTADA OFICIAL del álbum (public/cover.jpg, la puso gontugithub):
+// sin permiso escrito del titular, se pide excepción educativa (D8 en CLAUDE.md, docs/ktx2-note.md).
+// Si no se aprueba, SLEEVE_ART = 'own' vuelve a la funda propia (public/sleeve.png, pintada por
+// tools/make-sleeve.mjs, sin foto ni texto) sin tocar nada más.
+// Cada imagen está codificada a KTX2 con `npm run encode -- queen-bohemian-rhapsody <png>`; la ruta
+// carga el KTX2 (ETC1S por defecto, ver SLEEVE_MODE). La oficial se pasó antes a PNG 1024² (sips).
 
 import { useEffect, useMemo } from 'react';
 import { useTexture } from '@react-three/drei';
@@ -16,18 +14,34 @@ import { formatName, gpuBytes } from '../../../src/lib/gpuBytes.js';
 import { useKTX2Texture } from '../../../src/lib/ktx2.js';
 
 /**
- * public/sleeve.png: portada propia generada por tools/make-sleeve.mjs. Pon `null` para volver
- * al dibujo de canvas de abajo.
+ * Qué funda se imprime: 'official' (public/cover.jpg) u 'own' (public/sleeve.png, arte propio).
+ *
+ * @type {'official' | 'own'}
+ */
+const SLEEVE_ART = 'official';
+
+const ART = {
+  official: {
+    png: new URL('../public/cover.jpg', import.meta.url).href,
+    etc1s: new URL('../public/cover-etc1s.ktx2', import.meta.url).href,
+    uastc: new URL('../public/cover-uastc.ktx2', import.meta.url).href,
+  },
+  own: {
+    png: new URL('../public/sleeve.png', import.meta.url).href,
+    etc1s: new URL('../public/sleeve-etc1s.ktx2', import.meta.url).href,
+    uastc: new URL('../public/sleeve-uastc.ktx2', import.meta.url).href,
+  },
+};
+
+/**
+ * Imagen fuente de la funda (modo `?sleeve=png`). Pon `null` para volver al dibujo de canvas de abajo.
  *
  * @type {string | null}
  */
-export const SLEEVE_URL = new URL('../public/sleeve.png', import.meta.url).href;
+export const SLEEVE_URL = ART[SLEEVE_ART].png;
 
-/** task3: la misma funda codificada con `npm run encode -- queen-bohemian-rhapsody` (docs/ktx2-note.md). */
-const KTX2_URLS = {
-  etc1s: new URL('../public/sleeve-etc1s.ktx2', import.meta.url).href,
-  uastc: new URL('../public/sleeve-uastc.ktx2', import.meta.url).href,
-};
+/** La misma funda codificada a KTX2 (docs/ktx2-note.md). */
+const KTX2_URLS = { etc1s: ART[SLEEVE_ART].etc1s, uastc: ART[SLEEVE_ART].uastc };
 
 /**
  * Formato de la funda: ETC1S por defecto (docs/ktx2-note.md explica por qué). Para medir y comparar,
@@ -145,10 +159,10 @@ function useCanvasSleeve() {
   return texture;
 }
 
-/** Portada desde public/sleeve.png. La caché de drei es la dueña de la textura (no dispose aquí). */
+/** Portada desde la imagen fuente (SLEEVE_URL). La caché de drei es la dueña de la textura (no dispose aquí). */
 function usePngSleeve() {
   const texture = useTexture(/** @type {string} */ (SLEEVE_URL), (tex) => {
-    tex.colorSpace = SRGBColorSpace; // el PNG guarda colores de pantalla
+    tex.colorSpace = SRGBColorSpace; // la imagen guarda colores de pantalla
     tex.anisotropy = 4;
   });
   useLogSleeve(texture);

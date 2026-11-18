@@ -16,22 +16,24 @@ Si algo de aquí contradice al repo, gana el repo.
 ## Mapa de archivos (src/)
 | Archivo | Qué hace |
 | --- | --- |
-| `Route.jsx` | Canvas, estado idle → «Entrar», overlay DOM (título, Entrar, Saltar/Repetir intro, Escape, aria-live), cursor en hover, reduced-motion, BudgetProbe |
+| `Route.jsx` | Canvas, estado idle → «Entrar», overlay DOM (título, Entrar, Saltar/Repetir intro, Mirar libre, Escape, aria-live), cursor en hover, reduced-motion, BudgetProbe |
+| `Tracklist.jsx` + `usePlaylist.js` + `player.js` | Panel derecho: pistas del álbum (iTunes Search API), fragmentos de 30 s de Apple Music en reproducción continua desde «Entrar» (orden `AUTOPLAY`, fundido cruzado), enlace a Spotify |
 | `Scene.jsx` | Árbol R3F: portada → mundo (cielo, luces, estadio, Freddie, multitud); `USE_GLB` elige placeholders o GLB |
-| `keys.js` | Match cut calculado (`MATCH`, `SLEEVE_CENTER`, `SLEEVE_SIZE`, `IDLE_CAMERA`), zoom (`FLIGHT_FROM`, `ZOOM_FOV`), keyframes del vuelo (`KEYS`), `PORTAL_FADE`, `WORLD_FROM` |
-| `CameraRig.jsx` | Idle: `OrbitControls` sobre la funda → acercamiento a `MATCH` → zoom de FOV (match cut) → vuelo Catmull-Rom → `CameraControls`; teclas dev |
+| `keys.js` | Primer plano desde abajo (`MATCH`, `SLEEVE_CENTER`, `SLEEVE_TILT`, `IDLE_CAMERA`), zoom y apertura (`FLIGHT_FROM`, `ZOOM_FOV`, `REVEAL_FOV`), keyframes del vuelo (`KEYS`), `PORTAL_FADE`, `WORLD_FROM` |
+| `CameraRig.jsx` | Idle: `OrbitControls` sobre la funda → acercamiento a `MATCH` → zoom de FOV (match cut) → vuelo Catmull-Rom → recorrido con la rueda (o `FreeFly.jsx` con «Mirar libre»: WASD + ratón, Espacio/Shift); teclas dev (apagadas en libre) |
 | `SunsetSky.jsx` | Skybox con shader propio (`uTime`, `uTod`, `uSunDir`): degradado, sol, nubes fbm, star trails. Nota: `docs/shader-note.md` |
 | `sky.js` | `SKY_PERIOD` (envuelve uTime), `BEAT_HZ` (72 bpm), `sunDirection(tod)` compartida por cielo y luces |
 | `SkyLights.jsx` | Sol direccional, ambiente y 2 focos violetas ligados a `tod` |
+| `SpaceBackdrop.jsx` | Espacio del idle alrededor del disco: nebulosa (shader fbm), estrellas y polvo en `Points`; se funde con la portada |
 | `CoverPortal.jsx` | Disco en su funda (portada delante/detrás + vinilo asomando): balanceo en idle, clic = entrar, se desvanece |
-| `sleeveArt.js` | Imagen de la funda: procedural propia o `public/sleeve.png` (`SLEEVE_URL`) |
+| `sleeveArt.js` | Imagen de la funda: portada oficial `public/cover.jpg` o la propia `public/sleeve.png` (`SLEEVE_ART`), cargada en KTX2 |
 | `Crowd.jsx` | Multitud = 1 `InstancedMesh` (bote en vertex shader, `aPhase`) + móviles en 1 `Points`; posiciones con PRNG con semilla |
 | `placeholders.js` | Geometría procedural con los nombres/medidas del futuro GLB |
 | `stadiumGlb.js` | Camino GLTF + KTX2 + meshopt (inactivo hasta task3) |
 | `RendererInfo.jsx` | `console.table` de renderer.info en portada / plano ancho / plano final |
 
 ## Ejes de la escena (contrato con Blender)
-Metros, +Y arriba. Freddie en el origen, pies en y = 0, mirando a −Z, cara a ~1,72 m; pose = la figura de `public/sleeve.png` vista por detrás (puño en alto en −X, micro delante en +X) porque el match cut de `keys.js` depende de ello: si se cambia la pose (Blender o `make-sleeve.mjs`), revisar `FIGURE`/`FREDDIE` en `keys.js`. Superficie del escenario y = 0,
+Metros, +Y arriba. Freddie en el origen, pies en y = 0, mirando a −Z, cara a ~1,72 m; pose = la figura de `public/sleeve.png` vista por detrás (puño en alto en −X, micro delante en +X). Desde task5 no hay match cut exacto (portada oficial): el primer plano es `MATCH` en `keys.js`, a 0,3 m del escenario y mirando hacia arriba, con la funda inclinada `SLEEVE_TILT`. Superficie del escenario y = 0,
 césped y = −1,6. Sol hacia −Z (delante de Freddie, sobre la grada que mira), ligeramente a −X: desde detrás (cámara MATCH en +Z) queda a contraluz y a la izquierda de cámara, como en la portada. El vuelo arranca POR DETRÁS (`VIEW_DIR = −1` en `keys.js`). Grada desde r = 24 m. Fans: +Z local apunta al escenario.
 
 ## Flujo de PRs (rama: `cover-queen-bohemian-rhapsody-task<N>-<tema>`, nunca push a main)
@@ -39,10 +41,14 @@ césped y = −1,6. Sol hacia −Z (delante de Freddie, sobre la grada que mira)
 - task2: shader propio (`SunsetSky.jsx`) + `docs/shader-note.md`
 - task3: KTX2 (ETC1S/UASTC) + `docs/ktx2-note.md` (bytes de archivo y GPU) + `docs/ai-3d-merge-log.md`
 - task4: arreglo en otro slug + una review formal
+- task5 (extra, petición propia): tracklist, portada oficial, título, recorrido con la rueda + «Mirar libre»
 - Cada PR lleva la tabla **AI Review Log** (qué hizo la IA / qué verifiqué yo). Los PRs los abre el humano.
 
 ## Derechos (D8) — repo PÚBLICO con GitHub Pages
-- NO publicar la portada oficial ni el vídeo de referencia. Solo referencia local en `reference/` (excluido en `.git/info/exclude`).
+- NO publicar el vídeo de referencia (solo local en `reference/`, excluido en `.git/info/exclude`).
+- **Portada oficial en la funda (task5): decisión de gontugithub (2026-11-18), en contra de la regla original** «no publicar
+  la portada oficial». Sin permiso del titular: excepción educativa pendiente del profesor (fila 24 del merge log,
+  `docs/ktx2-note.md`). Si no se aprueba: `SLEEVE_ART = 'own'` en `src/sleeveArt.js` vuelve a la funda propia.
 - Arte propio / PD / licencia abierta. Registrar creador, fuente, licencia en `docs/ktx2-note.md`.
 - Freddie = modelo de terceros «Freddie Mercury - T_Pose» de **Gerwerni** (Sketchfab,
   https://sketchfab.com/3d-models/freddie-mercury-t-pose-b89ee72767a54daa8c79768a5cdd2bbd, **CC-BY-4.0**), posado, diezmado y

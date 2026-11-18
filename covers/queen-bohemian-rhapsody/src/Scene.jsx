@@ -1,6 +1,6 @@
 // Scene.jsx — árbol R3F de la ruta (dentro del <Canvas> de Route.jsx).
 //
-// t < WORLD_FROM: vacío negro con la portada (CoverPortal).
+// t < WORLD_FROM: la portada (CoverPortal) flotando en el espacio (SpaceBackdrop: nebulosa, estrellas, polvo).
 // t ≥ WORLD_FROM: cielo + luces (SkyLights) + estadio + Freddie + multitud con móviles (grupo `world`).
 // La hora del día (progress.tod) mueve el cielo, las luces y la multitud a la vez.
 // task3: GLB de Blender (stadiumGlb.js, USE_GLB = true). Los placeholders procedurales de task1
@@ -16,6 +16,7 @@ import Crowd from './Crowd.jsx';
 import { GLB_SITE } from './crowdSite.js';
 import RendererInfo from './RendererInfo.jsx';
 import SkyLights from './SkyLights.jsx';
+import SpaceBackdrop from './SpaceBackdrop.jsx';
 import SunsetSky from './SunsetSky.jsx';
 import { WORLD_FROM } from './keys.js';
 import { makeFan, makeFreddie, makeMic, makeStadium, makeStage } from './placeholders.js';
@@ -121,11 +122,12 @@ function GlbWorld({ progress, reduced }) {
  * @param {() => void} props.onEnter Clic en la portada en idle.
  * @param {(hovered: boolean) => void} props.onHoverPortal
  * @param {boolean} props.skip Saltar a la pose final.
+ * @param {boolean} props.free Tras la intro: navegación libre en vez del recorrido con la rueda.
  * @param {boolean} props.reduced prefers-reduced-motion.
  * @param {boolean} props.done La intro ha terminado.
  * @param {() => void} props.onDone
  */
-export default function Scene({ run, started, onEnter, onHoverPortal, skip, reduced, done, onDone }) {
+export default function Scene({ run, started, onEnter, onHoverPortal, skip, free, reduced, done, onDone }) {
   const progress = useRef({ t: 0, tod: 0 });
   const world = useRef(null);
 
@@ -154,8 +156,9 @@ export default function Scene({ run, started, onEnter, onHoverPortal, skip, redu
         )}
       </group>
 
+      <SpaceBackdrop progress={progress} reduced={reduced} />
       <CoverPortal progress={progress} idle={!started} reduced={reduced} onEnter={onEnter} onHover={onHoverPortal} />
-      <CameraRig key={run} started={started} skip={skip} onProgress={onProgress} onDone={onDone} />
+      <CameraRig key={run} started={started} skip={skip} free={free} onProgress={onProgress} onDone={onDone} />
       <RendererInfo key={`info-${run}`} progress={progress} done={done} />
     </>
   );

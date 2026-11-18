@@ -22,12 +22,15 @@ import usePrefersReducedMotion from '../../../src/lib/usePrefersReducedMotion.js
 import { CEILING } from './budget.js';
 import { IDLE_CAMERA } from './keys.js';
 import Scene from './Scene.jsx';
+import Tracklist from './Tracklist.jsx';
+import usePlaylist from './usePlaylist.js';
 import './route.css';
 
 const SCOPE = 'route-queen-bohemian-rhapsody';
 // Arranca en la vista de tres cuartos del idle; al entrar, CameraRig la lleva a la pose de t = 0.
 const CAMERA = { fov: 35, near: 0.1, far: 1500, position: IDLE_CAMERA };
 const DPR = [1, 1.5];
+const TUTORIAL_KEY = 'qbr-freefly-tutorial';
 
 export default function Route() {
   const reduced = usePrefersReducedMotion();
@@ -36,6 +39,11 @@ export default function Route() {
   const [hovered, setHovered] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [done, setDone] = useState(false);
+  const [free, setFree] = useState(false);
+  const playlist = usePlaylist();
+  // Mini tutorial del vuelo libre: la primera vez que se entra (se recuerda en este navegador).
+  const [tutorial, setTutorial] = useState(false);
+  const { playFromStart } = playlist;
   const [budget, setBudget] = useState(null);
   const [showBudget] = useState(
     () => import.meta.env.DEV || new URLSearchParams(window.location.search).has('budget'),
@@ -58,14 +66,40 @@ export default function Route() {
   }, [started]);
 
   const onDone = useCallback(() => setDone(true), []);
-  const onEnter = useCallback(() => setStarted(true), []);
+  // Entrar (clic en la funda o en el botón) arranca también la música: es el gesto que el navegador exige.
+  const onEnter = useCallback(() => {
+    setStarted(true);
+    playFromStart();
+  }, [playFromStart]);
   const onHoverPortal = useCallback((value) => setHovered(value), []);
   const onSkip = () => {
     setStarted(true);
+    playFromStart();
     setSkipped(true);
+  };
+  const onToggleFree = () => {
+    if (!free) {
+      let seen = false;
+      try {
+        seen = window.localStorage.getItem(TUTORIAL_KEY) === '1';
+      } catch {
+        // sin almacenamiento: se enseña siempre
+      }
+      setTutorial(!seen);
+    } else setTutorial(false);
+    setFree(!free);
+  };
+  const onTutorialDone = () => {
+    try {
+      window.localStorage.setItem(TUTORIAL_KEY, '1');
+    } catch {
+      // sin almacenamiento: no pasa nada
+    }
+    setTutorial(false);
   };
   const onReplay = () => {
     setDone(false);
+    setFree(false);
     setSkipped(false);
     setRun((n) => n + 1);
   };
@@ -82,6 +116,7 @@ export default function Route() {
             onEnter={onEnter}
             onHoverPortal={onHoverPortal}
             skip={skip}
+            free={free}
             reduced={reduced}
             done={done}
             onDone={onDone}
@@ -89,6 +124,8 @@ export default function Route() {
         </Suspense>
         <BudgetProbe onSample={setBudget} />
       </Canvas>
+
+      <Tracklist playlist={playlist} />
 
       <header className="qbr__title">
         <h1>Bohemian Rhapsody</h1>
@@ -131,16 +168,43 @@ export default function Route() {
             Saltar intro
           </button>
         ) : null}
+        {done ? (
+          <button type="button" aria-pressed={free} onClick={onToggleFree}>
+            {free ? 'Volver al recorrido' : 'Mirar libre'}
+          </button>
+        ) : null}
         {started && !reduced && done ? (
           <button type="button" onClick={onReplay}>
             Repetir intro
           </button>
         ) : null}
-        {done ? <p>Arrastra para orbitar · rueda para acercar · clic derecho para desplazar</p> : null}
+        {done && !free ? <p>Rueda o desliza: abajo avanza, arriba deshace el recorrido</p> : null}
+        {done && free ? <p>W A S D moverte · ratón mirar · Espacio subir · Shift bajar · Esc soltar el ratón</p> : null}
       </div>
 
+      {free && tutorial ? (
+        <div className="qbr__tutorial" role="dialog" aria-labelledby="qbr-tutorial-title">
+          <h2 id="qbr-tutorial-title">Vuela por el estadio</h2>
+          <ul>
+            <li>
+              <kbd>Clic</kbd> en la escena para capturar el ratón; muévelo para mirar. <kbd>Esc</kbd> lo suelta.
+            </li>
+            <li>
+              <kbd>W</kbd> avanzas hacia donde miras (mira arriba y subes) · <kbd>S</kbd> atrás
+            </li>
+            <li>
+              <kbd>A</kbd> <kbd>D</kbd> de lado · <kbd>Espacio</kbd> subir · <kbd>Shift</kbd> bajar
+            </li>
+            <li>«Volver al recorrido» te devuelve a la ruta del dron.</li>
+          </ul>
+          <button type="button" onClick={onTutorialDone}>
+            Entendido
+          </button>
+        </div>
+      ) : null}
+
       <p className="qbr__sr" aria-live="polite">
-        {done ? 'Intro terminada. Navegación libre activa.' : ''}
+        {done ? (free ? 'Navegación libre activa.' : 'Intro terminada. Usa la rueda para recorrer el estadio.') : ''}
       </p>
 
       {showBudget && budget ? (
