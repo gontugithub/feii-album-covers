@@ -53,10 +53,12 @@ césped y = −1,6. Sol hacia −Z (delante de Freddie, sobre la grada que mira)
   `docs/ktx2-note.md`. Sin image-to-3D ni generadores de IA para Freddie; no cambiarlo por otro modelo sin repetir el registro.
 - Fans = maniquíes estilizados propios (sin cambios).
 
-## Referencia visual (vídeo 16.5 s)
-Portada flotando en vacío → atraviesa → estadio al atardecer (Freddie a contraluz) → push-in → contrapicado →
-tras él → primer plano cara (focos violetas) → baja a cinturón/micro → cielo nocturno con star trails
-→ plano final con fan-maniquí. Estética: fans maniquí estilizados, luces de móviles, haces de luz (Freddie: ver D8).
+## Referencia visual
+Vídeo de referencia (16,5 s) solo para el arranque: portada flotando en vacío → atraviesa → estadio al atardecer
+(Freddie a contraluz). Desde el GATE 4 el vuelo sigue el guion de gontugithub (~55 s, `src/keys.js`): contrapicado por
+detrás → hombro derecho → sobre el público hasta el fondo → vista de espectador → dron por la grada → dentro del escenario
+→ detrás de él → sube sobre el estadio de noche con los móviles. Estética: fans maniquí estilizados, luces de móviles,
+haces de luz (Freddie: ver D8).
 
 ## Presupuesto GPU
 Tope del curso: ≤ 200 draw calls desktop, ≤ 80 móvil; techo propio en `src/budget.js` (`CEILING`) + `docs/renderer-info.md`.
